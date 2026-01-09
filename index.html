@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Evaluasi Kelas Online - SDN 1 Rate-Rate</title>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.0/papaparse.min.js"></script>
+
+    <style>
+        body { font-family: 'Roboto', sans-serif; background-color: #f4f4f4; padding: 20px; }
+        .container { max-width: 800px; margin: 0 auto; background: white; padding: 30px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        .header { display: flex; align-items: center; border-bottom: 3px double #333; padding-bottom: 20px; margin-bottom: 20px; }
+        .logo { width: 80px; height: auto; margin-right: 20px; }
+        .header-info h2 { margin: 0; font-size: 1.2rem; text-transform: uppercase; }
+        .header-info p { margin: 2px 0; font-size: 0.9rem; }
+        
+        .student-info { background: #eef2f3; padding: 15px; border-radius: 5px; margin-bottom: 20px; border: 1px solid #ddd; }
+        .form-group { margin-bottom: 10px; }
+        .form-group input { padding: 5px; width: 60%; border: 1px solid #ccc; border-radius: 4px; }
+        
+        /* --- PERUBAHAN GAYA TABS DI SINI --- */
+        .tab-container { display: flex; margin-bottom: 25px; }
+        
+        .tab-btn { 
+            flex: 1; 
+            padding: 12px; 
+            border: none; 
+            background: #e0e0e0; /* Warna default (tidak aktif) lebih gelap sedikit */
+            cursor: pointer; 
+            font-weight: bold; 
+            font-size: 1.05rem; 
+            color: #555; 
+            transition: all 0.3s ease;
+            border-radius: 8px 8px 0 0; /* Membuat sudut atas melengkung */
+            margin: 0 2px; /* Jarak sedikit antar tab */
+        }
+        
+        .tab-btn:hover { background: #d0d0d0; } /* Efek saat mouse di atas tab tidak aktif */
+        
+        /* GAYA UNTUK TAB YANG AKTIF */
+        .tab-btn.active { 
+            background: #25D366; /* Background Hijau menyala saat aktif */
+            color: white;         /* Teks menjadi putih saat aktif */
+            border-bottom: none; /* Menghapus garis bawah sebelumnya */
+            box-shadow: 0 -2px 5px rgba(0,0,0,0.1); /* Sedikit bayangan agar terlihat menonjol */
+        }
+        /* ---------------------------------- */
+
+        .tab-content { display: none; padding-top: 10px; }
+        .tab-content.active { display: block; animation: fadeIn 0.5s; }
+
+        .question-box { margin-bottom: 20px; border-bottom: 1px solid #eee; padding-bottom: 15px; }
+        .question-text { font-weight: bold; margin-bottom: 10px; display: block; }
+        
+        /* Style Gambar */
+        .soal-img { max-width: 100%; height: auto; max-height: 300px; display: block; margin: 10px 0; border: 1px solid #ccc; border-radius: 4px; }
+
+        .options label { display: block; margin-bottom: 5px; cursor: pointer; }
+        
+        /* Style Textarea Essay */
+        textarea.essay-input { width: 100%; height: 80px; padding: 10px; border: 1px solid #ccc; border-radius: 4px; margin-top: 10px; font-family: inherit; resize: vertical; box-sizing: border-box; }
+
+        .btn-submit { background-color: #25D366; color: white; border: none; padding: 15px 30px; font-size: 1rem; font-weight: bold; border-radius: 5px; cursor: pointer; width: 100%; margin-top: 20px; }
+        .btn-submit:hover { background-color: #128C7E; }
+        #error-msg { color: red; text-align: center; display: none; background: #ffe6e6; padding: 10px; border-radius: 5px;}
+
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="header">
+        <img src="https://upload.wikimedia.org/wikipedia/commons/9/9c/Logo_of_Ministry_of_Education_and_Culture_of_Republic_of_Indonesia.svg" alt="Logo" class="logo">
+        <div class="header-info">
+            <h2>SD Negeri 1 Rate-Rate</h2>
+            <p><strong>Nama Guru:</strong> Rahmat, S.Pd</p>
+            <p><strong>NIP:</strong> 12345678901234</p>
+            <p><strong>Tanggal:</strong> <span id="currentDate"></span></p>
+            <p><strong>Mata Pelajaran:</strong> <span id="dynamicSubject" style="color:blue">Memuat...</span></p>
+        </div>
+    </div>
+
+    <div class="student-info">
+        <div class="form-group">
+            <label>Nama Siswa:</label> <input type="text" id="namaSiswa" required>
+        </div>
+        <div class="form-group">
+            <label>Kelas:</label> <input type="text" id="kelasSiswa" required>
+        </div>
+    </div>
+
+    <div id="error-msg"></div>
+
+    <div class="tab-container">
+        <button class="tab-btn active" onclick="openTab('pg')">Pilihan Ganda</button>
+        <button class="tab-btn" onclick="openTab('essay')">Essay / Uraian</button>
+    </div>
+
+    <div id="pg-container" class="tab-content active">
+        <p style="text-align:center;">Memuat Soal PG...</p>
+    </div>
+
+    <div id="essay-container" class="tab-content">
+        <p style="text-align:center;">Memuat Soal Essay...</p>
+    </div>
+
+    <button class="btn-submit" onclick="submitAnswers()">Kirim Jawaban ke WhatsApp Guru</button>
+</div>
+
+<script>
+    // ==========================================
+    // KONFIGURASI 
+    // ==========================================
+    // Link Sheet Anda yang baru
+    const rawSheetLink = "https://docs.google.com/spreadsheets/d/19uKQec9H7xyVaGfK-xoYgD7dcarmSi3_eNFNyjsNn1M/edit?usp=drivesdk";
+    const teacherPhone = "628114082147"; 
+
+    // ==========================================
+    // SYSTEM CODE
+    // ==========================================
+
+    document.getElementById('currentDate').innerText = new Date().toLocaleDateString('id-ID', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+
+    function getCleanCsvUrl(url) {
+        try {
+            const matches = url.match(/\/d\/(.*?)(\/|$)/);
+            return matches && matches[1] ? `https://docs.google.com/spreadsheets/d/${matches[1]}/gviz/tq?tqx=out:csv&sheet=Sheet1` : null;
+        } catch (e) { return null; }
+    }
+
+    function convertDriveImage(url) {
+        if (!url) return "";
+        if (url.includes("drive.google.com")) {
+            const idMatch = url.match(/\/d\/(.*?)\/view/) || url.match(/id=(.*?)(&|$)/);
+            if (idMatch && idMatch[1]) return `https://drive.google.com/uc?export=view&id=${idMatch[1]}`;
+        }
+        return url;
+    }
+
+    // Fungsi Tab Switching
+    function openTab(tabName) {
+        const contents = document.querySelectorAll('.tab-content');
+        const btns = document.querySelectorAll('.tab-btn');
+        
+        contents.forEach(el => el.classList.remove('active'));
+        btns.forEach(el => el.classList.remove('active'));
+
+        if(tabName === 'pg') {
+            document.getElementById('pg-container').classList.add('active');
+            btns[0].classList.add('active');
+        } else {
+            document.getElementById('essay-container').classList.add('active');
+            btns[1].classList.add('active');
+        }
+    }
+
+    let questionsData = [];
+    let currentMapel = "Latihan Soal";
+
+    const csvUrl = getCleanCsvUrl(rawSheetLink);
+
+    if(csvUrl) {
+        Papa.parse(csvUrl, {
+            download: true, header: true,
+            complete: function(results) {
+                questionsData = results.data;
+                if(questionsData.length > 0) {
+                    if(questionsData[0].Judul_Mapel) currentMapel = questionsData[0].Judul_Mapel;
+                    document.getElementById('dynamicSubject').innerText = currentMapel;
+                    renderQuiz(questionsData);
+                } else {
+                    document.getElementById('pg-container').innerHTML = "Data Kosong atau Header Salah";
+                }
+            },
+            error: function() {
+                document.getElementById('error-msg').style.display = 'block';
+                document.getElementById('error-msg').innerText = "Gagal memuat. Pastikan Sheet 'Anyone with the link'.";
+            }
+        });
+    }
+
+    function renderQuiz(data) {
+        const pgContainer = document.getElementById('pg-container');
+        const essayContainer = document.getElementById('essay-container');
+        pgContainer.innerHTML = "";
+        essayContainer.innerHTML = "";
+
+        let pgCount = 0;
+        let essayCount = 0;
+
+        data.forEach((item, index) => {
+            if(!item.Pertanyaan) return;
+            
+            // Cek Tipe Soal (Default ke PG jika kosong)
+            const tipeSoal = item.Tipe ? item.Tipe.trim().toUpperCase() : "PG";
+            
+            // Render Gambar
+            let imgHTML = "";
+            if(item.Link_Gambar && item.Link_Gambar.trim() !== "") {
+                const fixImgUrl = convertDriveImage(item.Link_Gambar);
+                imgHTML = `<img src="${fixImgUrl}" class="soal-img" alt="Gambar">`;
+            }
+
+            // HTML Structure
+            if (tipeSoal === "ESSAY") {
+                essayCount++;
+                const qHTML = `
+                    <div class="question-box">
+                        <span class="question-text">Soal ${essayCount}. ${item.Pertanyaan}</span>
+                        ${imgHTML}
+                        <textarea id="essay_ans_${index}" class="essay-input" placeholder="Tulis jawaban Anda di sini..."></textarea>
+                    </div>`;
+                essayContainer.innerHTML += qHTML;
+            } else {
+                // Default PG
+                pgCount++;
+                const qHTML = `
+                    <div class="question-box">
+                        <span class="question-text">${pgCount}. ${item.Pertanyaan}</span>
+                        ${imgHTML}
+                        <div class="options">
+                            <label><input type="radio" name="q${index}" value="A"> A. ${item.Opsi_A}</label>
+                            <label><input type="radio" name="q${index}" value="B"> B. ${item.Opsi_B}</label>
+                            <label><input type="radio" name="q${index}" value="C"> C. ${item.Opsi_C}</label>
+                            <label><input type="radio" name="q${index}" value="D"> D. ${item.Opsi_D}</label>
+                        </div>
+                    </div>`;
+                pgContainer.innerHTML += qHTML;
+            }
+        });
+
+        // Pesan jika kosong
+        if(essayCount === 0) essayContainer.innerHTML = "<p style='text-align:center'>Tidak ada soal essay.</p>";
+        if(pgCount === 0) pgContainer.innerHTML = "<p style='text-align:center'>Tidak ada soal Pilihan Ganda.</p>";
+    }
+
+    function submitAnswers() {
+        const nama = document.getElementById('namaSiswa').value;
+        const kelas = document.getElementById('kelasSiswa').value;
+        if(!nama || !kelas) { alert("Isi nama dan kelas dulu!"); return; }
+
+        let pgScore = 0; 
+        let pgTotal = 0;
+        let essayAnswers = "";
+
+        questionsData.forEach((item, index) => {
+            if(!item.Pertanyaan) return;
+
+            const tipeSoal = item.Tipe ? item.Tipe.trim().toUpperCase() : "PG";
+
+            if (tipeSoal === "ESSAY") {
+                // Ambil jawaban essay
+                const ans = document.getElementById(`essay_ans_${index}`).value;
+                essayAnswers += `\n${index + 1} (E). ${ans ? ans : '-'}`;
+            } else {
+                // Hitung Nilai PG
+                pgTotal++;
+                const radios = document.getElementsByName(`q${index}`);
+                let val = null;
+                for(const r of radios) if(r.checked) val = r.value;
+                if(val === (item.Jawaban_Benar ? item.Jawaban_Benar.trim().toUpperCase() : "")) pgScore++;
+            }
+        });
+
+        const finalScore = pgTotal > 0 ? (pgScore / pgTotal) * 100 : 0;
+        
+        let msg = `*Laporan Evaluasi Online*`;
+        msg += `\nMapel: ${currentMapel}`;
+        msg += `\nNama: ${nama}`;
+        msg += `\nKelas: ${kelas}`;
+        msg += `\n------------------`;
+        msg += `\n*NILAI PG: ${finalScore.toFixed(0)}* (Benar ${pgScore}/${pgTotal})`;
+        
+        if (essayAnswers !== "") {
+            msg += `\n\n*Jawaban Essay:*`;
+            msg += essayAnswers;
+        }
+
+        window.open(`https://wa.me/${teacherPhone}?text=${encodeURIComponent(msg)}`, '_blank');
+    }
+</script>
+</body>
+</html>
